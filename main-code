@@ -1,0 +1,232 @@
+// For use on the Arduino Uno Rev3
+// Code made by Roselyn / https://github.com/rosa-com
+
+// Include Libraries
+#include "Arduino.h"
+#include "BTHC05.h"
+#include "DHT.h"
+#include "NewPing.h"
+#include "RFID.h"
+#include "SD.h"
+#include "Servo.h"
+
+// Pin Definitions
+#define BTHC05_PIN_TXD  3
+#define BTHC05_PIN_RXD  2
+#define DHT_PIN_DATA  4
+#define HCSR04_PIN_TRIG 6
+#define HCSR04_PIN_ECHO 5
+#define RFID_PIN_RST  7
+#define RFID_PIN_SDA  8
+#define SDFILE_PIN_CS 10
+#define SERVO9G_PIN_SIG 9
+#define WATERLEVELSENSOR_5V_PIN_SIG A3
+
+// Global variables and defines
+const int servo9gRestPosition   = 20;  //Starting position
+const int servo9gTargetPosition = 150; //Position when event is detected
+
+// object initialization
+BTHC05 bthc05(BTHC05_PIN_RXD,BTHC05_PIN_TXD);
+DHT dht(DHT_PIN_DATA);
+NewPing hcsr04(HCSR04_PIN_TRIG,HCSR04_PIN_ECHO);
+RFID rfid(RFID_PIN_SDA,RFID_PIN_RST);
+File sdFile;
+Servo servo9g;
+
+    float dhtHumidity = dht.readHumidity();
+    // Read temperature in Celsius, for Fahrenheit use .readTempF()
+    float dhtTempC = dht.readTempC();
+    int hcsr04Dist = hcsr04.ping_cm();
+    int waterFakeData = random(40,50);   //The water range is 40 to 50 as it is very unrealistic if it changed too rapidly.
+    
+// define vars for testing menu
+const int timeout = 10000;       //define timeout of 10 sec
+char menuOption = 0;
+long time0;
+
+
+// Setup the essentials for your circuit to work. It runs first every time your circuit is powered with electricity.
+void setup() 
+{
+    // Setup Serial which is useful for debugging
+    // Use the Serial Monitor to view printed messages
+    Serial.begin(9600);
+    while (!Serial) ; // wait for serial port to connect. Needed for native USB
+    
+    bthc05.begin(9600);
+    //This example uses HC-05 Bluetooth to communicate with an Android device.
+    //You should see this message from your arduino on your android device
+    bthc05.println("Bluetooth On....");
+    dht.begin();
+    //initialize RFID module
+    rfid.init();
+    // The SD is set to use SPI SS Arduino pin 10 as chip select(CS) by default.
+    // To change the pin use SD.begin(SD_CS_PIN)
+    pinMode(SDFILE_PIN_CS, OUTPUT);
+    // Check if the card is present and can be initialized
+    if (!SD.begin()) {
+    Serial.println(F("SD Card failed, or not present. Try again and reset."));
+    while(1);
+    }
+    Serial.println(F("SD card initialized."));
+    servo9g.attach(SERVO9G_PIN_SIG);
+    servo9g.write(servo9gRestPosition);
+    delay(100);
+    servo9g.detach();
+    
+    //menuOption = menu();
+    
+}
+
+// Main logic of your circuit. It defines the interaction between the components you selected. After setup, it runs over and over again, in an eternal loop. This could be s
+void loop() 
+{
+    if(menuOption == '1') {
+    // HC - 05 Bluetooth Serial Module
+    String bthc05Str = "";
+    //Receive String from bluetooth device
+    if (bthc05.available())
+    {
+    //Read a complete line from bluetooth terminal
+    bthc05Str = bthc05.readStringUntil('\n');
+    // Print raw data to serial monitor
+    Serial.print("BT Raw Data: ");
+    Serial.println(bthc05Str);
+    }
+    //Send sensor data to Bluetooth device  
+    bthc05.println("Sensor data here:");
+    bthc05.println("Current water level, humidity and temperature:");
+    bthc05.println(F("Humidity: ")); bthc05.print(dhtHumidity); bthc05.print(F(" [%]\t"));
+    bthc05.println(F("Temp: ")); bthc05.print(dhtTempC); bthc05.println(F(" [C]"));
+    bthc05.println("Water level: " + waterFakeData);
+    bthc05.println(F("Distance: ")); bthc05.print(hcsr04Dist);
+    }
+    
+    else if(menuOption == '2') {
+    // DHT22/11 Humidity and Temperature Sensor
+    
+    Serial.print(F("Humidity: ")); Serial.print(dhtHumidity); Serial.print(F(" [%]\t"));
+    Serial.print(F("Temp: ")); Serial.print(dhtTempC); Serial.println(F(" [C]"));
+    delay(30);
+    }
+    
+    else if(menuOption == '3') {
+    // Ultrasonic Sensor - HC-SR04
+    // Read distance measurment from UltraSonic sensor           
+
+    delay(30);
+    Serial.print(F("Distance: ")); Serial.print(hcsr04Dist); Serial.println(F("[cm]"));
+    }
+    
+    else if(menuOption == '4') {
+    // RFID Card Reader - RC522
+    //Read RFID tag if present
+    String rfidtag = rfid.readTag();
+    //print the tag to serial monitor if one was discovered
+    rfid.printTag(rfidtag);
+    delay(30);
+    }
+    
+    else if(menuOption == '5') {
+    // Micro SD module
+    // The SD example code creates or opens a file with the name of your choice for logging sensor data
+
+    String plantFile;
+   Serial.println("Please enter your file name or what you would like your file to be called (include .txt):");
+   while (Serial.available() == 0) {}
+    plantFile = Serial.readString();
+  // This gets rid of the extra line
+  plantFile.trim();
+    sdFile = SD.open(plantFile, FILE_WRITE);
+    // if the file exists in SD card, write sensor data
+    if (sdFile) {
+    //Write to file
+    sdFile.println("Current humidity and temperature: ");
+    sdFile.println(F("Humidity: ")); sdFile.print(dhtHumidity); sdFile.print(F(" [%]\t"));
+    sdFile.println(F("Temp: ")); sdFile.print(dhtTempC); sdFile.println(F(" [C]"));
+    sdFile.println("Water level: " + waterFakeData);
+    sdFile.println(F("Distance: ")); sdFile.print(hcsr04Dist);
+    
+    Serial.println("File " + plantFile + "currently reads: ");
+    // Reading the whole file
+    while (sdFile.available()) {
+      Serial.write(sdFile.read());
+
+    sdFile.close();
+    } 
+    }
+    else {
+    // if the file didn't open, print an error
+    Serial.println("Error opening file " + plantFile + " .");
+    }
+    }
+    
+    else if(menuOption == '6') {
+    // 9G Micro Servo 
+    // The servo will rotate to target position and back to resting position with an interval of 500 milliseconds (0.5 seconds) 
+    servo9g.attach(SERVO9G_PIN_SIG);         // 1. attach the servo to correct pin to control it.
+    servo9g.write(servo9gTargetPosition);  // 2. turns servo to target position. Modify target position by modifying the 'ServoTargetPosition' definition above.
+    delay(500);                              // 3. waits 500 milliseconds (0.5 sec). change the value in the brackets (500) for a longer or shorter delay in milliseconds.
+    servo9g.write(servo9gRestPosition);    // 4. turns servo back to rest position. Modify initial position by modifying the 'ServoRestPosition' definition above.
+    delay(500);                              // 5. waits 500 milliseconds (0.5 sec). change the value in the brackets (500) for a longer or shorter delay in milliseconds.
+    servo9g.detach();                    // 6. release the servo to conserve power. When detached the servo will NOT hold it's position under stress.
+    }
+    else if(menuOption == '7')
+    {
+    // Disclaimer: The Water Level Sensor Module is in testing and/or doesn't have code, therefore it may be buggy. I will be adding realistic data to represent this function. 
+    Serial.println("The water level is : " + waterFakeData);
+    delay(30);
+}
+    
+    if (millis() - time0 > timeout)
+    {
+        menuOption = menu();
+    }
+    
+}
+char menu()
+{
+
+    Serial.println(F("\nWhich component would you like to see?"));
+    Serial.println(F("(1) HC - 05 Bluetooth Serial Module"));
+    Serial.println(F("(2) DHT22/11 Humidity and Temperature Sensor"));
+    Serial.println(F("(3) Ultrasonic Sensor - HC-SR04"));
+    Serial.println(F("(4) RFID Card Reader - RC522"));
+    Serial.println(F("(5) Micro SD module"));
+    Serial.println(F("(6) 9G Micro Servo"));
+    Serial.println(F("(7) Water Level Sensor Module"));
+    Serial.println(F("(menu) send anything else or press on board reset button\n"));
+    while (!Serial.available());
+
+    // Read data from serial monitor if received
+    while (Serial.available()) 
+    {
+        char c = Serial.read();
+        if (isAlphaNumeric(c)) 
+        {   
+            
+            if(c == '1') 
+          Serial.println(F("HC - 05 Bluetooth Serial Module:"));
+        else if(c == '2') 
+          Serial.println(F("DHT22/11 Humidity and Temperature Sensor:"));
+        else if(c == '3') 
+          Serial.println(F("Ultrasonic Sensor - HC-SR04:"));
+        else if(c == '4') 
+          Serial.println(F("RFID Card Reader - RC522:"));
+        else if(c == '5') 
+          Serial.println(F("Micro SD module:"));
+        else if(c == '6') 
+          Serial.println(F("9G Micro Servo:"));
+        else if(c == '7') 
+          Serial.println(F("Water Level Sensor Module - note that this component doesn't have a test code:"));
+            else
+            {
+                Serial.println(F("illegal input!"));
+                return 0;
+            }
+            time0 = millis();
+            return c;
+        }
+    }
+}
