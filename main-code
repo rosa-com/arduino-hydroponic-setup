@@ -40,26 +40,24 @@ Servo servo9g;
     int hcsr04Dist = hcsr04.ping_cm();
     int waterFakeData = random(40,50);   //The water range is 40 to 50 as it is very unrealistic if it changed too rapidly.
     
-// define vars for testing menu
+// define variables for testing menu
 const int timeout = 10000;       //define timeout of 10 sec
 char menuOption = 0;
 long time0;
 
 
-// Setup the essentials for your circuit to work. It runs first every time your circuit is powered with electricity.
+// Setup - runs everytime Arduino is powered with electricity
 void setup() 
 {
-    // Setup Serial which is useful for debugging
-    // Use the Serial Monitor to view printed messages
     Serial.begin(9600);
-    while (!Serial) ; // wait for serial port to connect. Needed for native USB
+    while (!Serial) ; // wait for serial port to connect.
     
     bthc05.begin(9600);
     //This example uses HC-05 Bluetooth to communicate with an Android device.
-    //You should see this message from your arduino on your android device
+    //You should see this message from your arduino on your android device - I used the "Bluetooth Terminal" app
     bthc05.println("Bluetooth On....");
     dht.begin();
-    //initialize RFID module
+    
     rfid.init();
     // The SD is set to use SPI SS Arduino pin 10 as chip select(CS) by default.
     // To change the pin use SD.begin(SD_CS_PIN)
@@ -75,11 +73,9 @@ void setup()
     delay(100);
     servo9g.detach();
     
-    //menuOption = menu();
-    
 }
 
-// Main logic of your circuit. It defines the interaction between the components you selected. After setup, it runs over and over again, in an eternal loop. This could be s
+// Main logic of the circuit. After setup, it runs over and over again, in an eternal loop. 
 void loop() 
 {
     if(menuOption == '1') {
@@ -125,7 +121,7 @@ void loop()
     String rfidtag = rfid.readTag();
     //print the tag to serial monitor if one was discovered
     rfid.printTag(rfidtag);
-    delay(30);
+    delay(30);  //Larger delay would send less prints to the serial monitor
     }
     
     else if(menuOption == '5') {
@@ -133,13 +129,13 @@ void loop()
     // The SD example code creates or opens a file with the name of your choice for logging sensor data
 
     String plantFile;
-   Serial.println("Please enter your file name or what you would like your file to be called (include .txt):");
-   while (Serial.available() == 0) {}
+    Serial.println("Please enter your file name or what you would like your file to be called (include .txt):");
+    while (Serial.available() == 0) {}
     plantFile = Serial.readString();
-  // This gets rid of the extra line
-  plantFile.trim();
+    // This gets rid of the extra line - the extra line will cause issues when naming the file and opening it
+    plantFile.trim();
     sdFile = SD.open(plantFile, FILE_WRITE);
-    // if the file exists in SD card, write sensor data
+    // if the file exists in SD card, write sensor data - it will exist as the function .open will open the file or create a new one
     if (sdFile) {
     //Write to file
     sdFile.println("Current humidity and temperature: ");
@@ -166,7 +162,7 @@ void loop()
     // 9G Micro Servo 
     // The servo will rotate to target position and back to resting position with an interval of 500 milliseconds (0.5 seconds) 
     servo9g.attach(SERVO9G_PIN_SIG);         // 1. attach the servo to correct pin to control it.
-    servo9g.write(servo9gTargetPosition);  // 2. turns servo to target position. Modify target position by modifying the 'ServoTargetPosition' definition above.
+    servo9g.write(servo9gTargetPosition);  // 2. turns servo to target position.
     delay(500);                              // 3. waits 500 milliseconds (0.5 sec). change the value in the brackets (500) for a longer or shorter delay in milliseconds.
     servo9g.write(servo9gRestPosition);    // 4. turns servo back to rest position. Modify initial position by modifying the 'ServoRestPosition' definition above.
     delay(500);                              // 5. waits 500 milliseconds (0.5 sec). change the value in the brackets (500) for a longer or shorter delay in milliseconds.
